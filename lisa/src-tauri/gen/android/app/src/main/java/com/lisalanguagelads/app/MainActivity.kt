@@ -1,3 +1,3 @@
-package com.lisa.app
+package com.lisalanguagelads.app
 
 class MainActivity : TauriActivity()
