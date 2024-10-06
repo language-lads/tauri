@@ -4,6 +4,7 @@
   import { invoke } from "@tauri-apps/api/core";
 
   let isRecording = false;
+  let isMicOn = false;
   let transcript = "";
   onMount(() => {
     // Add keyboard event listeners
@@ -35,6 +36,12 @@
     });
   }
 
+  function startMic() {
+    invoke("start_microphone").then(() => {
+      isMicOn = true;
+    });
+  }
+
   listen<string>("transcript", (event) => {
     transcript = event.payload;
   });
@@ -43,16 +50,21 @@
 <div class="container">
   <h1>Talk to me, boy</h1>
   <div class="transcript">{transcript}</div>
-  <button
-    on:mousedown={startRecording}
-    on:mouseup={stopRecording}
-    on:mouseleave={stopRecording}
-    on:touchstart={startRecording}
-    on:touchend={stopRecording}
-    class:recording={isRecording}
-  >
-    {isRecording ? "Recording..." : "Hold to Record"}
-  </button>
+
+  <div>
+    <button on:click={startMic}>Start mic</button>
+
+    <button
+      on:mousedown={startRecording}
+      on:mouseup={stopRecording}
+      on:mouseleave={stopRecording}
+      on:touchstart={startRecording}
+      on:touchend={stopRecording}
+      class:recording={isRecording}
+    >
+      {isRecording ? "Recording..." : "Hold to Record"}
+    </button>
+  </div>
 </div>
 
 <style>

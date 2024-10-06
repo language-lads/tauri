@@ -1,4 +1,10 @@
+use cpal::traits::DeviceTrait;
+use cpal::traits::HostTrait;
+use cpal::traits::StreamTrait;
+use cpal::InputCallbackInfo;
 use crossbeam::atomic::AtomicCell;
+use log::error;
+use log::info;
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter};
 
@@ -12,10 +18,110 @@ pub struct State {
     pub stop_flag: Arc<AtomicCell<bool>>,
 }
 
+pub fn get_input_audio_device_configs() -> Vec<cpal::SupportedStreamConfig> {
+    let host = cpal::default_host();
+    let input_audio_device = host
+        .default_input_device()
+        .expect("Failed to find the audio input device");
+    input_audio_device
+        .supported_input_configs()
+        .unwrap()
+        // The max and min sample rates seem to be the same usually
+        .map(|x| x.with_max_sample_rate())
+        .collect()
+}
+
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 #[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
+fn start_microphone(app: AppHandle) {
+    println!("Microphone started");
+    let host = cpal::default_host();
+    let input_audio_device = host
+        .default_input_device()
+        .expect("no input device available");
+    app.emit(
+        "transcript",
+        format!(
+            "Using audio input device: {}",
+            input_audio_device.name().unwrap()
+        ),
+    )
+    .unwrap();
+
+    std::thread::spawn(move || {
+        // Setup the audio input
+        let host = cpal::default_host();
+        let input_audio_device = host
+            .default_input_device()
+            .expect("no input device available");
+        info!(
+            "Using audio input device: {}",
+            input_audio_device.name().unwrap()
+        );
+        let input_device_config_1 = get_input_audio_device_configs()[0].clone();
+        for config in get_input_audio_device_configs() {
+            println!("Audio input device config: {:?}", config);
+        }
+        println!(
+            "Using audio input device config: {:?}",
+            input_device_config_1
+        );
+        let input_device_config = cpal::StreamConfig {
+            channels: 2,
+            sample_rate: cpal::SampleRate(16000),
+            buffer_size: cpal::BufferSize::Default,
+        };
+        let d = host
+            .default_input_device()
+            .unwrap()
+            .default_input_config()
+            .unwrap();
+        println!("Default input config: {:?}", d);
+
+        //    // Create a stream thread to capture audio from the input device
+        //    let is_listening_clone = is_listening.clone();
+        let audio_stream = input_audio_device
+            .build_input_stream(
+                &input_device_config,
+                move |data: &[f32], _: &InputCallbackInfo| {
+                    let data = data.to_vec();
+                    if data.len() < 5 {
+                        return;
+                    }
+                    //println!(
+                    //    "Audio samples: {} {} {} {} {}",
+                    //    data[0], data[1], data[2], data[3], data[4]
+                    //);
+                    app.emit(
+                        "transcript",
+                        format!(
+                            "Audio samples: {} {} {} {} {}",
+                            data[0], data[1], data[2], data[3], data[4],
+                        ),
+                    )
+                    .unwrap();
+                },
+                |err| {
+                    error!("The input audio stream failed: {}", err);
+                },
+                None,
+            )
+            .expect("Failed to build input audio stream");
+
+        // Start streaming...
+        audio_stream.play().expect("Failed to play audio stream");
+
+        std::thread::sleep(std::time::Duration::from_millis(5000));
+        //// Keep checking if we're done streaming
+        //while is_listening.load() {
+        //    std::thread::sleep(std::time::Duration::from_millis(200));
+        //}
+
+        // All done! Let's close the stream and return
+        info!("Finished streaming from input audio device");
+        drop(audio_stream);
+        //Ok(())
+    });
 }
 
 #[tauri::command]
@@ -65,7 +171,7 @@ pub fn run() {
         .manage(state)
         .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
-            greet,
+            start_microphone,
             start_recording,
             stop_recording,
         ])
