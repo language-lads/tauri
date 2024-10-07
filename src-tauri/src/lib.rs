@@ -2,11 +2,15 @@ use cpal::traits::DeviceTrait;
 use cpal::traits::HostTrait;
 use cpal::traits::StreamTrait;
 use cpal::InputCallbackInfo;
+use cpal::StreamConfig;
 use crossbeam::atomic::AtomicCell;
 use log::error;
 use log::info;
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter};
+use tauri_plugin_log::Target;
+use tauri_plugin_log::TargetKind;
+use tauri_plugin_microphone::*;
 
 pub type Thread = std::thread::JoinHandle<()>;
 
@@ -36,6 +40,7 @@ pub fn get_input_audio_device_configs() -> Vec<cpal::SupportedStreamConfig> {
 fn start_microphone(app: AppHandle) {
     println!("Microphone started");
     let host = cpal::default_host();
+    error!("Rocky balboa");
     let input_audio_device = host
         .default_input_device()
         .expect("no input device available");
@@ -54,29 +59,26 @@ fn start_microphone(app: AppHandle) {
         let input_audio_device = host
             .default_input_device()
             .expect("no input device available");
-        info!(
-            "Using audio input device: {}",
-            input_audio_device.name().unwrap()
-        );
-        let input_device_config_1 = get_input_audio_device_configs()[0].clone();
-        for config in get_input_audio_device_configs() {
-            println!("Audio input device config: {:?}", config);
-        }
-        println!(
-            "Using audio input device config: {:?}",
-            input_device_config_1
-        );
-        let input_device_config = cpal::StreamConfig {
-            channels: 2,
-            sample_rate: cpal::SampleRate(16000),
-            buffer_size: cpal::BufferSize::Default,
-        };
-        let d = host
-            .default_input_device()
-            .unwrap()
-            .default_input_config()
-            .unwrap();
-        println!("Default input config: {:?}", d);
+        //info!(
+        //    "Using audio input device: {}",
+        //    input_audio_device.name().unwrap()
+        //);
+        //let input_device_config_1 = get_input_audio_device_configs()[0].clone();
+        //for config in get_input_audio_device_configs() {
+        //    info!("Audio input device config: {:?}", config);
+        //}
+        //info!(
+        //    "Using audio input device config: {:?}",
+        //    input_device_config_1
+        //);
+        //let input_device_config = cpal::StreamConfig {
+        //    channels: 2,
+        //    sample_rate: cpal::SampleRate(16000),
+        //    buffer_size: cpal::BufferSize::Default,
+        //};
+        let input_device_config: StreamConfig =
+            input_audio_device.default_input_config().unwrap().into();
+        info!("Default input config: {:?}", input_device_config);
 
         //    // Create a stream thread to capture audio from the input device
         //    let is_listening_clone = is_listening.clone();
@@ -126,6 +128,12 @@ fn start_microphone(app: AppHandle) {
 
 #[tauri::command]
 fn start_recording(app: AppHandle, state: tauri::State<State>) {
+    let ping = PingRequest {
+        value: Some("hello".to_string()),
+    };
+    let response = app.microphone().ping(ping).unwrap();
+    info!("Ping response: {:?}", response);
+
     state.transcript.lock().unwrap().clear();
     state.transcript.lock().unwrap().push_str("DJ Khaled: ");
     state.stop_flag.store(false);
@@ -170,6 +178,16 @@ pub fn run() {
     tauri::Builder::default()
         .manage(state)
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_microphone::init())
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .targets([
+                    Target::new(TargetKind::Stdout),
+                    Target::new(TargetKind::LogDir { file_name: None }),
+                    Target::new(TargetKind::Webview),
+                ])
+                .build(),
+        )
         .invoke_handler(tauri::generate_handler![
             start_microphone,
             start_recording,

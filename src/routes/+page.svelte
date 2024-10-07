@@ -26,6 +26,9 @@
   }
 
   function startRecording() {
+		invoke('ping', 'allo').then((response) => {
+			console.log(response);
+		});
     invoke("start_recording").then(() => {
       isRecording = true;
     });
