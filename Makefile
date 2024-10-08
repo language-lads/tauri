@@ -1,8 +1,7 @@
 # Main variables
 SERVICES := appium android-simulator
 TMP_DIR := ./tmp
-#UNAME_S := $(shell uname -s)
-UNAME_S := adasdfs
+UNAME_S := $(shell uname -s)
 
 ifeq ($(UNAME_S),Darwin)
 	# MacOS specific variables

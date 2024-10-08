@@ -2,10 +2,12 @@
   import { onMount } from "svelte";
   import { listen } from "@tauri-apps/api/event";
   import { invoke } from "@tauri-apps/api/core";
+  import AudioVisualiser from "../components/AudioVisualiser.svelte";
 
   let isRecording = false;
   let isMicOn = false;
   let transcript = "";
+
   onMount(() => {
     // Add keyboard event listeners
     window.addEventListener("keydown", handleKeyDown);
@@ -26,15 +28,12 @@
   }
 
   function startRecording() {
-		invoke('ping', 'allo').then((response) => {
-			console.log(response);
-		});
-    invoke("start_recording").then(() => {
+    invoke("start_microphone").then(() => {
       isRecording = true;
     });
   }
   function stopRecording() {
-    invoke("stop_recording").then(() => {
+    invoke("stop_microphone").then(() => {
       isRecording = false;
     });
   }
@@ -48,15 +47,23 @@
   listen<string>("transcript", (event) => {
     transcript = event.payload;
   });
+
+	
+	let data = Array.from({ length: 4000 }, () => Math.random());
+  listen<number[]>("audio_data", (event) => {
+		data = event.payload;
+  });
+
+	// Random set of 4000 values between 1 and 0
 </script>
 
 <div class="container">
   <h1>Talk to me, boy</h1>
   <div class="transcript">{transcript}</div>
 
-  <div>
-    <button on:click={startMic}>Start mic</button>
+	<AudioVisualiser data={data} />
 
+  <div>
     <button
       on:mousedown={startRecording}
       on:mouseup={stopRecording}

@@ -1892,6 +1892,7 @@ dependencies = [
 name = "lisa"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "cpal",
  "crossbeam",
  "log",
