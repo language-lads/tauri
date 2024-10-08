@@ -1,15 +1,22 @@
 # Main variables
-SERVICES := appium android-simulator ios-simulator
-TMP_DIR := tmp
-IOS_SIMULATOR := iPhone 16
+SERVICES := appium android-simulator
+TMP_DIR := ./tmp
+#UNAME_S := $(shell uname -s)
+UNAME_S := adasdfs
+
+ifeq ($(UNAME_S),Darwin)
+	# MacOS specific variables
+  SERVICES += ios-simulator
+  IOS_SIMULATOR := iPhone 16
+  IOS_SIMULATOR_ID := $(shell xcrun simctl list --json devices available | jq '.devices[][] | select(.name == "$(IOS_SIMULATOR)") | .udid')
+endif
 
 # Helper variables (not targets)
 stop-services := $(addprefix stop-, $(SERVICES))
 start-services := $(addprefix start-, $(SERVICES))
-IOS_SIMULATOR_ID := $(shell xcrun simctl list --json devices available | jq '.devices[][] | select(.name == "$(IOS_SIMULATOR)") | .udid')
 
 # Tell make that these targets aren't real files
-.PHONY: install test help $(stop-services) $(start-services)
+.PHONY: install test help info $(stop-services) $(start-services) info
 
 # When running just `make`, show our help message
 default: help
@@ -28,14 +35,26 @@ test: stop ## Run all tests
 	node tests/android.test.cjs
 	$(MAKE) stop-android-simulator
 
+ifeq ($(UNAME_S),Darwin)
 	@echo "Run iOS tests"
 	$(MAKE) start-ios-simulator
 	node tests/ios.test.cjs
 	$(MAKE) stop-ios-simulator
+endif
 
 	$(MAKE) stop-appium
 	stty sane # Fix any terminal quirks
 	@echo "\n\nTests completed"
+
+info: ## Print out make variables
+	@echo "SERVICES: $(SERVICES)"
+	@echo "TMP_DIR: $(TMP_DIR)"
+	@echo "UNAME_S: $(UNAME_S)"
+	@echo "MAKEFILE_LIST: $(MAKEFILE_LIST)"
+ifeq ($(UNAME_S),Darwin)
+	@echo "IOS_SIMULATOR: $(IOS_SIMULATOR)"
+	@echo "IOS_SIMULATOR_ID: $(IOS_SIMULATOR_ID)"
+endif
 
 start-appium: stop-appium ### Start the Appium test process
 	# Run in the background and save the PID to a file
@@ -55,6 +74,7 @@ stop-android-simulator: ### Stop the Android simulator
 	[ -f $(TMP_DIR)/android.pid ] && cat $(TMP_DIR)/android.pid | xargs kill -2 || true
 	rm -f $(TMP_DIR)/android.pid
 
+ifeq ($(UNAME_S),Darwin)
 start-ios-simulator: stop-ios-simulator ### Start the iOS simulator
 	# Assuming we only have one simulator installed
 	open -a Simulator && sleep 2
@@ -68,6 +88,7 @@ stop-ios-simulator: ### Stop the iOS simulator
 	osascript -e 'tell application "Simulator" to quit'
 	[ -f $(TMP_DIR)/ios.pid ] && cat $(TMP_DIR)/ios.pid | xargs kill -2 || true
 	rm -f $(TMP_DIR)/ios.pid
+endif
 
 # https://gist.github.com/prwhite/8168133
 # Add a double hash (##) after a target's description to make it show up in the help as a primary target.
