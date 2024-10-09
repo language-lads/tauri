@@ -6,6 +6,7 @@ use cpal::traits::{DeviceTrait, StreamTrait};
 use cpal::InputCallbackInfo;
 use crossbeam::atomic::AtomicCell;
 use log::error;
+use rubato::{FftFixedIn, Resampler};
 
 pub struct Microphone {}
 
@@ -23,9 +24,23 @@ impl Microphone {
                 &input_device_config,
                 move |data: &[f32], _: &InputCallbackInfo| {
                     let data = data.to_vec();
+
+                    // We need to resample the incoming audio to 24kHz
+                    let mut resampler = FftFixedIn::<f32>::new(
+                        input_device_config.sample_rate.0 as usize, // input sample rate
+                        input_device_config.sample_rate.0 as usize, // output sample rate
+                        data.len(),                                 // input buffer size
+                        data.len(),                                 // sub chunks
+                        input_device_config.channels.into(),        // channels
+                    );
+
+                    let resampled_data = &resampler
+                        .process(&[data.clone()])
+                        .expect("Failed to resample audio")[0];
+
                     crate::send_to_channels![
                         audio_samples_senders,
-                        data,
+                        resampled_data,
                         stop_flag_arc,
                         "Failed to send audio samples"
                     ];

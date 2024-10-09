@@ -3,6 +3,9 @@ use crate::models::*;
 use anyhow::anyhow;
 use anyhow::Context;
 use cpal::traits::{DeviceTrait, HostTrait};
+use cpal::BufferSize;
+use cpal::StreamConfig;
+use cpal::SupportedBufferSize;
 use log::debug;
 use log::info;
 
@@ -24,7 +27,7 @@ impl AudioDevices {
     }
 
     /// Get the default audio input device configuration for the system.
-    /// Prefer a sample rate close to 16kHz, because that seems to be what
+    /// Prefer a sample rate close to 24kHz, because that seems to be what
     /// all the fancy AI audio models expect.
     ///
     /// # Arguments
@@ -38,14 +41,15 @@ impl AudioDevices {
         if cfg!(break_default_input_device_config) {
             return Err(anyhow!("Audio config disabled"));
         }
-        let desired_sample_rate = 16000; // Hz
+        let desired_sample_rate = 24000; // Hz
         let configs = Self::get_input_device_configs(input_device)?;
-        let config = configs
+        let mut config = configs
             .into_iter()
             .min_by_key(|config| (config.sample_rate.0 as i32 - desired_sample_rate).unsigned_abs())
             .ok_or(anyhow!("No configs found for input device"))?;
         let device_name = input_device.name()?;
         info!("Default config for device '{}': {:?}", device_name, config);
+        config.channels = 1; // We only support mono audio
         Ok(config)
     }
 
@@ -63,9 +67,19 @@ impl AudioDevices {
             .supported_input_configs()
             .context("Failed to get input device configs")?;
 
-        let mut stream_configs: Vec<cpal::StreamConfig> = vec![];
+        let mut stream_configs: Vec<StreamConfig> = vec![];
         for config in supported_input_configs {
-            stream_configs.push(config.with_max_sample_rate().into())
+            let config_with_max_rate = config.clone().with_max_sample_rate();
+            // Use the biggest buffer size available
+            let max_buffer_size = match config_with_max_rate.buffer_size() {
+                SupportedBufferSize::Range { max, .. } => Some(max),
+                SupportedBufferSize::Unknown => None,
+            };
+            let mut config: StreamConfig = config.clone().with_max_sample_rate().into();
+            if let Some(buffer_size) = max_buffer_size {
+                config.buffer_size = BufferSize::Fixed(*buffer_size);
+            }
+            stream_configs.push(config);
         }
         let device_name = device.name()?;
         debug!(
