@@ -5,19 +5,15 @@ use crate::models::*;
 use cpal::traits::{DeviceTrait, StreamTrait};
 use cpal::InputCallbackInfo;
 use crossbeam::atomic::AtomicCell;
-use log::{error, info, trace};
+use log::{error, info};
 use tauri::AppHandle;
 
 pub struct Microphone {}
 
 impl Microphone {
-    pub fn start(stop_flag: Arc<AtomicCell<bool>>, app: AppHandle) -> Thread {
+    pub fn start(input_device: cpal::Device, input_device_config: cpal::StreamConfig,
+        stop_flag: Arc<AtomicCell<bool>>, app: AppHandle) -> Thread {
         std::thread::spawn(move || {
-            let input_device = AudioDevices::get_default_input_device()
-                .expect("Could not start microphone: No input device found");
-            let input_device_config = AudioDevices::get_default_config(&input_device)
-                .expect("Could not start microphone: No input device config found");
-
             // Create a stream thread to capture audio from the input device
             let audio_stream = input_device.build_input_stream(
                 &input_device_config,
@@ -41,8 +37,6 @@ impl Microphone {
                 std::thread::sleep(std::time::Duration::from_millis(200));
             }
 
-            // All done! Let's close the stream and return
-            trace!("Finished streaming from input audio device");
             drop(audio_stream);
             Ok(())
         })

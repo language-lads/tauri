@@ -10,3 +10,10 @@ This template should help get you started developing with Tauri, SvelteKit and T
 
 - Setup tauri-plugin-microphone so that it properly asks for permissions and stuff at the right time
 - Write appium tests to make sure that the microphone is working
+
+## config
+
+```
+RUSTFLAGS="--cfg=break_audio_input_device" npm run tauri dev
+RUSTFLAGS="--cfg=break_default_input_device_config" npm run tauri dev
+```

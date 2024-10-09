@@ -7,7 +7,6 @@ use tauri_plugin_log::{Target, TargetKind};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // This state object represents our main application state that
     let state = State::default();
 
     tauri::Builder::default()
@@ -26,11 +25,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             start_microphone,
             stop_microphone,
-            //start_recording,
-            //stop_recording,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .expect("Could not start the Tauri application");
 }
 
 //use cpal::traits::DeviceTrait;

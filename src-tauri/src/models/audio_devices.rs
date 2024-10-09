@@ -1,40 +1,63 @@
+#![allow(unexpected_cfgs)]
 use crate::models::*;
 use anyhow::anyhow;
-use anyhow::bail;
 use anyhow::Context;
 use cpal::traits::{DeviceTrait, HostTrait};
+use log::debug;
+use log::info;
 
 pub struct AudioDevices {}
 
 impl AudioDevices {
+    /// Get the default audio input device for the system.
+    /// Returns an error if no audio input device can be found.
     pub fn get_default_input_device() -> Result<cpal::Device> {
-        cpal::default_host()
+        if cfg!(break_audio_input_device) {
+            return Err(anyhow!("Audio disabled"));
+        }
+        let device = cpal::default_host()
             .default_input_device()
-            .ok_or_else(|| anyhow!("No audio input device found"))
+            .ok_or(anyhow!("No audio input device found"))?;
+        let device_name = device.name().context("Failed to get input device name")?;
+        info!("Default audio input device: {:?}", device_name);
+        Ok(device)
     }
 
+    /// Get the default audio input device configuration for the system.
+    /// Prefer a sample rate close to 16kHz, because that seems to be what
+    /// all the fancy AI audio models expect.
+    ///
+    /// # Arguments
+    ///
+    /// * `input_device` - The audio device to get the default configuration for
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if no configurations can be found for the input device.
     pub fn get_default_config(input_device: &cpal::Device) -> Result<cpal::StreamConfig> {
-        // Prefer the closest sample rate to 16kHz
-        let desired_sample_rate = 16000;
+        if cfg!(break_default_input_device_config) {
+            return Err(anyhow!("Audio config disabled"));
+        }
+        let desired_sample_rate = 16000; // Hz
         let configs = Self::get_input_device_configs(input_device)?;
-        if configs.is_empty() {
-            bail!(
-                "No configs found for input device {}",
-                input_device.name().unwrap()
-            );
-        }
-        let mut min_diff = u32::MAX;
-        let mut default_config = None;
-        for config in configs {
-            let diff = (config.sample_rate.0 as i32 - desired_sample_rate).unsigned_abs();
-            if diff < min_diff {
-                min_diff = diff;
-                default_config = Some(config);
-            }
-        }
-        Ok(default_config.unwrap())
+        let config = configs
+            .into_iter()
+            .min_by_key(|config| (config.sample_rate.0 as i32 - desired_sample_rate).unsigned_abs())
+            .ok_or(anyhow!("No configs found for input device"))?;
+        let device_name = input_device.name()?;
+        info!("Default config for device '{}': {:?}", device_name, config);
+        Ok(config)
     }
 
+    /// Get a list of configurations for an audio input device.
+    ///
+    /// # Arguments
+    ///
+    /// * `device` - The audio device to get the configurations for
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the configurations cannot be retrieved for some reason
     fn get_input_device_configs(device: &cpal::Device) -> Result<Vec<cpal::StreamConfig>> {
         let supported_input_configs = device
             .supported_input_configs()
@@ -44,6 +67,11 @@ impl AudioDevices {
         for config in supported_input_configs {
             stream_configs.push(config.with_max_sample_rate().into())
         }
+        let device_name = device.name()?;
+        debug!(
+            "Available configs for device '{}': {:?}",
+            device_name, stream_configs
+        );
         Ok(stream_configs)
     }
 }

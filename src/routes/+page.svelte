@@ -28,14 +28,23 @@
   }
 
   function startRecording() {
-    invoke("start_microphone").then(() => {
-      isRecording = true;
-    });
+    invoke("start_microphone")
+      .then(() => {
+        isRecording = true;
+      })
+      .catch((error) => {
+        console.error(error);
+      });
   }
+
   function stopRecording() {
-    invoke("stop_microphone").then(() => {
-      isRecording = false;
-    });
+    invoke("stop_microphone")
+      .then(() => {
+        isRecording = false;
+      })
+      .catch((error) => {
+        console.error(error);
+      });
   }
 
   function startMic() {
@@ -48,20 +57,19 @@
     transcript = event.payload;
   });
 
-	
-	let data = Array.from({ length: 4000 }, () => Math.random());
+  let data = Array.from({ length: 4000 }, () => Math.random());
   listen<number[]>("audio_data", (event) => {
-		data = event.payload;
+    data = event.payload;
   });
 
-	// Random set of 4000 values between 1 and 0
+  // Random set of 4000 values between 1 and 0
 </script>
 
 <div class="container">
   <h1>Talk to me, boy</h1>
   <div class="transcript">{transcript}</div>
 
-	<AudioVisualiser data={data} />
+  <AudioVisualiser {data} />
 
   <div>
     <button
