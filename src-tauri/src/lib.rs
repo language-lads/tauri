@@ -1,7 +1,8 @@
 pub mod controllers;
+pub mod macros;
 pub mod models;
 
-use controllers::microphone::*;
+use controllers::*;
 use models::*;
 use tauri_plugin_log::{Target, TargetKind};
 
@@ -23,8 +24,8 @@ pub fn run() {
                 .build(),
         )
         .invoke_handler(tauri::generate_handler![
-            start_microphone,
-            stop_microphone,
+            start_audio_session,
+            stop_audio_session,
         ])
         .run(tauri::generate_context!())
         .expect("Could not start the Tauri application");

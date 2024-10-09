@@ -17,3 +17,9 @@ This template should help get you started developing with Tauri, SvelteKit and T
 RUSTFLAGS="--cfg=break_audio_input_device" npm run tauri dev
 RUSTFLAGS="--cfg=break_default_input_device_config" npm run tauri dev
 ```
+
+Realtime API stuff
+- microphone thread -> *Get audio from the microphone* pushes to audio input channel
+- websocket sender thread -> *Send audio to OpenAI* input from audio input channel, send to WS
+- websocket listener thread -> *Receive audio from OpenAI* input from WS, send to audio output channel
+- audio output thread -> *Play audio back to the user* plays audio

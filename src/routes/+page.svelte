@@ -4,84 +4,45 @@
   import { invoke } from "@tauri-apps/api/core";
   import AudioVisualiser from "../components/AudioVisualiser.svelte";
 
-  let isRecording = false;
-  let isMicOn = false;
-  let transcript = "";
-
-  onMount(() => {
-    // Add keyboard event listeners
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
-  });
-
-  function handleKeyDown(event: KeyboardEvent) {
-    if (event.code === "Space" && !event.repeat && !isRecording) {
-      event.preventDefault(); // Prevent page scrolling
-      startRecording();
-    }
-  }
-
-  function handleKeyUp(event: KeyboardEvent) {
-    if (event.code === "Space" && isRecording) {
-      stopRecording();
-    }
-  }
-
-  function startRecording() {
-    invoke("start_microphone")
-      .then(() => {
-        isRecording = true;
-      })
-      .catch((error) => {
-        console.error(error);
-      });
-  }
-
-  function stopRecording() {
-    invoke("stop_microphone")
-      .then(() => {
-        isRecording = false;
-      })
-      .catch((error) => {
-        console.error(error);
-      });
-  }
-
-  function startMic() {
-    invoke("start_microphone").then(() => {
-      isMicOn = true;
-    });
-  }
-
-  listen<string>("transcript", (event) => {
-    transcript = event.payload;
-  });
-
-  let data = Array.from({ length: 4000 }, () => Math.random());
+  let data: number[];
+  $: data = [];
   listen<number[]>("audio_data", (event) => {
     data = event.payload;
   });
 
-  // Random set of 4000 values between 1 and 0
+  let toggleAudioSessionPromise: Promise<void>;
+  let audioSessionActive = false;
+  async function toggleAudioSession() {
+    if (audioSessionActive) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      await invoke("stop_audio_session").catch(console.error);
+    } else {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      await invoke("start_audio_session").catch(console.error);
+    }
+    audioSessionActive = !audioSessionActive;
+  }
+
+  function handleClick() {
+    toggleAudioSessionPromise = toggleAudioSession();
+  }
 </script>
 
 <div class="container">
   <h1>Talk to me, boy</h1>
-  <div class="transcript">{transcript}</div>
 
   <AudioVisualiser {data} />
 
   <div>
-    <button
-      on:mousedown={startRecording}
-      on:mouseup={stopRecording}
-      on:mouseleave={stopRecording}
-      on:touchstart={startRecording}
-      on:touchend={stopRecording}
-      class:recording={isRecording}
-    >
-      {isRecording ? "Recording..." : "Hold to Record"}
-    </button>
+    {#await toggleAudioSessionPromise}
+      <button class:recording={audioSessionActive} disabled>
+        {audioSessionActive ? "Stopping..." : "Starting..."}
+      </button>
+    {:then}
+      <button on:click={handleClick} class:recording={audioSessionActive}>
+        {audioSessionActive ? "I'm listening!" : "Start conversation"}
+      </button>
+    {/await}
   </div>
 </div>
 

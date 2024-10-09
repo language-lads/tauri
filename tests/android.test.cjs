@@ -26,7 +26,7 @@ async function runTest() {
       .$('//*[contains(text(), "Talk to me, boy")]')
 			.waitForDisplayed({ timeout: 20000 });
     await driver
-      .$('//button[contains(text(),"Hold to Record")]')
+      .$('//button[contains(text(),"Start conversation")]')
       .waitForDisplayed();
     await driver
       .$('//*[contains(text(), "I DONT EXIST")]')
