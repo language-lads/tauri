@@ -1,11 +1,19 @@
+######################################################
+#                                                    #
+# Run `make help` to get a nice list of all commands #
+#                                                    #
+######################################################
+
 # Main variables
-SERVICES := appium android-simulator
+SERVICES := appium android desktop
 TMP_DIR := ./tmp
+# We use UNAME_S to run different commands based on your OS
+# E.g. don't run any iOS specific stuff unless we're on a Mac
 UNAME_S := $(shell uname -s)
 
 ifeq ($(UNAME_S),Darwin)
 	# MacOS specific variables
-  SERVICES += ios-simulator
+  SERVICES += ios
   IOS_SIMULATOR := iPhone 16
   IOS_SIMULATOR_ID := $(shell xcrun simctl list --json devices available | jq '.devices[][] | select(.name == "$(IOS_SIMULATOR)") | .udid')
 endif
@@ -23,24 +31,23 @@ default: help
 install: ## Install dependencies
 	npm install
 
+start: start-desktop ## Start the desktop app
+
 stop: $(stop-services) ## Stop all services
 	stty sane # Fix any terminal quirks
 
 test: stop ## Run all tests
 	$(MAKE) start-appium
-
 	@echo "Run Android tests"
-	$(MAKE) start-android-simulator
+	$(MAKE) start-android
 	node tests/android.test.cjs
-	$(MAKE) stop-android-simulator
-
+	$(MAKE) stop-android
 ifeq ($(UNAME_S),Darwin)
 	@echo "Run iOS tests"
-	$(MAKE) start-ios-simulator
+	$(MAKE) start-ios
 	node tests/ios.test.cjs
-	$(MAKE) stop-ios-simulator
+	$(MAKE) stop-ios
 endif
-
 	$(MAKE) stop-appium
 	stty sane # Fix any terminal quirks
 	@echo "\n\nTests completed"
@@ -55,45 +62,50 @@ ifeq ($(UNAME_S),Darwin)
 	@echo "IOS_SIMULATOR_ID: $(IOS_SIMULATOR_ID)"
 endif
 
-start-appium: stop-appium ### Start the Appium test process
+start-desktop: stop-desktop ### Run the desktop app
+	npm run tauri dev & 
+	sleep 20 # Wait for the desktop app to start
+
+stop-desktop: ### Stop the desktop app
+	pkill -SIGINT -U $$(whoami) -f "npm run tauri dev" || true
+	pkill -SIGINT -U $$(whoami) -f "src-tauri/target/debug" || true
+
+start-android: stop-android ### Run the app on Android
 	# Run in the background and save the PID to a file
-	npx appium --allow-insecure chromedriver_autodownload & echo $$! > $(TMP_DIR)/appium.pid
+	npm run tauri android dev &
+	sleep 60 # Wait for the simulator to start and the app to be installed
 
-stop-appium: ### Stop the Appium test process
-	[ -f $(TMP_DIR)/appium.pid ] && cat $(TMP_DIR)/appium.pid | xargs kill -2 || true
-	rm -f $(TMP_DIR)/appium.pid
-
-start-android-simulator: stop-android-simulator ### Start the Android simulator
-	# Run in the background and save the PID to a file
-	npm run tauri android dev & echo $$! > $(TMP_DIR)/android.pid
-	sleep 45 # Wait enough time for the simulator to start
-
-stop-android-simulator: ### Stop the Android simulator
-	adb emu kill && sleep 15 || true
-	[ -f $(TMP_DIR)/android.pid ] && cat $(TMP_DIR)/android.pid | xargs kill -2 || true
-	rm -f $(TMP_DIR)/android.pid
+stop-android: ### Stop the Android app and simulator
+	adb emu kill && sleep 30 || true
+	pkill -SIGINT -U $$(whoami) -f "npm run tauri android dev" || true
 
 ifeq ($(UNAME_S),Darwin)
-start-ios-simulator: stop-ios-simulator ### Start the iOS simulator
+start-ios: stop-ios ### Run the app on iOS
 	# Assuming we only have one simulator installed
-	open -a Simulator && sleep 2
+	open -a Simulator && sleep 5
 	xcrun simctl boot $(IOS_SIMULATOR_ID)
 	# Run in the background and save the PID to a file
-	npm run tauri ios dev "$(IOS_SIMULATOR)" & echo $$! > $(TMP_DIR)/ios.pid
-	sleep 45 # Wait enough time for the simulator to start
+	npm run tauri ios dev "$(IOS_SIMULATOR)" &
+	sleep 60 # Wait enough time for the simulator to start and the app to be installed
 
-stop-ios-simulator: ### Stop the iOS simulator
+stop-ios: ### Stop the iOS app and simulator
 	xcrun simctl shutdown all
 	osascript -e 'tell application "Simulator" to quit'
-	[ -f $(TMP_DIR)/ios.pid ] && cat $(TMP_DIR)/ios.pid | xargs kill -2 || true
-	rm -f $(TMP_DIR)/ios.pid
+	pkill -SIGINT -U $$(whoami) -f "npm run tauri ios dev" || true
 endif
+
+start-appium: stop-appium ### Start the Appium test process
+	# Run in the background and save the PID to a file
+	npx appium --allow-insecure chromedriver_autodownload &
+
+stop-appium: ### Stop the Appium test process
+	pkill -SIGINT -U $$(whoami) -f "npm exec appium" || true
 
 # https://gist.github.com/prwhite/8168133
 # Add a double hash (##) after a target's description to make it show up in the help as a primary target.
 # Add a triple hash (###) after a target's description to make it show up in the help as a secondary target.
 help: ## Show this help.
-	@echo '-- Primary targets --'
-	@grep -hE '^[A-Za-z0-9_ \-]*?:.*\s##\s.*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-25s\033[0m %s\n", $$1, $$2}'
-	@echo '-- Secondary targets --'
-	@grep -hE '^[A-Za-z0-9_ \-]*?:.*\s###\s.*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?### "}; {printf "\033[36m%-25s\033[0m %s\n", $$1, $$2}'
+	@echo "\n-- Primary targets"
+	@grep -hE '^[A-Za-z0-9_ \-]*?:.*\s##\s.*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo "\n-- Secondary targets"
+	@grep -hE '^[A-Za-z0-9_ \-]*?:.*\s###\s.*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?### "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
