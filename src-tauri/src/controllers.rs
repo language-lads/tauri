@@ -1,5 +1,8 @@
 use crossbeam::channel;
 use log::{error, info, warn};
+use tauri::AppHandle;
+use tauri_plugin_microphone::MicrophoneExt;
+use tauri_plugin_microphone::PingRequest;
 
 use crate::models::errors::*;
 use crate::models::*;
@@ -59,4 +62,13 @@ pub fn stop_audio_session(state: tauri::State<State>) {
         };
     }
     info!("Audio session stopped");
+}
+
+#[tauri::command]
+pub fn get_permissions(app: AppHandle) {
+    let ping = PingRequest {
+        value: Some("hello".to_string()),
+    };
+    let response = app.microphone().ping(ping).unwrap();
+    info!("Ping response: {:?}", response);
 }

@@ -26,6 +26,12 @@
   function handleClick() {
     toggleAudioSessionPromise = toggleAudioSession();
   }
+
+  function getPermissions() {
+    invoke("get_permissions").then((response) => {
+      console.log(response);
+    });
+  }
 </script>
 
 <div class="container">
@@ -33,7 +39,8 @@
 
   <AudioVisualiser {data} />
 
-  <div>
+  <div class="button-container">
+    <button on:click={getPermissions}> Get permissions </button>
     {#await toggleAudioSessionPromise}
       <button class:recording={audioSessionActive} disabled>
         {audioSessionActive ? "Stopping..." : "Starting..."}
@@ -54,11 +61,12 @@
     justify-content: space-between;
     height: 90vh;
   }
-  .transcript {
-    font-size: 1.5em;
-    margin: 20px 0;
-    white-space: pre-wrap;
-    text-align: center;
+  .button-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
   }
   button.recording {
     background-color: #f44336;

@@ -1,4 +1,6 @@
 #![allow(unexpected_cfgs)]
+use std::cmp::min;
+
 use crate::models::*;
 use anyhow::anyhow;
 use anyhow::Context;
@@ -63,21 +65,27 @@ impl AudioDevices {
     ///
     /// Returns an error if the configurations cannot be retrieved for some reason
     fn get_input_device_configs(device: &cpal::Device) -> Result<Vec<cpal::StreamConfig>> {
+        // For some reason, Android audio devices have a ridiculously high supported buffer size
+        // We'll cap it at 4096
+        let buffer_upper_limit = 4096;
+
         let supported_input_configs = device
             .supported_input_configs()
             .context("Failed to get input device configs")?;
 
         let mut stream_configs: Vec<StreamConfig> = vec![];
         for config in supported_input_configs {
-            let config_with_max_rate = config.clone().with_max_sample_rate();
-            // Use the biggest buffer size available
+            let config_with_max_rate = config.with_max_sample_rate();
             let max_buffer_size = match config_with_max_rate.buffer_size() {
                 SupportedBufferSize::Range { max, .. } => Some(max),
                 SupportedBufferSize::Unknown => None,
             };
-            let mut config: StreamConfig = config.clone().with_max_sample_rate().into();
-            if let Some(buffer_size) = max_buffer_size {
-                config.buffer_size = BufferSize::Fixed(*buffer_size);
+            let mut config: StreamConfig = config.with_max_sample_rate().into();
+            if let Some(mut buffer_size) = max_buffer_size {
+                if *buffer_size == 0 {
+                    buffer_size = &buffer_upper_limit;
+                }
+                config.buffer_size = BufferSize::Fixed(min(buffer_upper_limit, *buffer_size));
             }
             stream_configs.push(config);
         }

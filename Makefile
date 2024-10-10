@@ -52,6 +52,9 @@ endif
 	stty sane # Fix any terminal quirks
 	@echo "\n\nTests completed"
 
+build: 
+	npm run tauri build
+
 info: ## Print out make variables
 	@echo "SERVICES: $(SERVICES)"
 	@echo "TMP_DIR: $(TMP_DIR)"

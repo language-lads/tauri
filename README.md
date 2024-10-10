@@ -19,7 +19,18 @@ RUSTFLAGS="--cfg=break_default_input_device_config" npm run tauri dev
 ```
 
 Realtime API stuff
-- microphone thread -> *Get audio from the microphone* pushes to audio input channel
-- websocket sender thread -> *Send audio to OpenAI* input from audio input channel, send to WS
-- websocket listener thread -> *Receive audio from OpenAI* input from WS, send to audio output channel
-- audio output thread -> *Play audio back to the user* plays audio
+
+- microphone thread -> _Get audio from the microphone_ pushes to audio input channel
+- websocket sender thread -> _Send audio to OpenAI_ input from audio input channel, send to WS
+- websocket listener thread -> _Receive audio from OpenAI_ input from WS, send to audio output channel
+- audio output thread -> _Play audio back to the user_ plays audio
+
+## Helpful commands
+
+View the logs from the connected android device / emulator:
+
+```bash
+adb shell run-as com.lisalanguagelads.app logcat | grep --line-buffered lisa_lib
+```
+
+TODO: setup the getting of microphone permissions because it's annoying
