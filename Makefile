@@ -54,6 +54,9 @@ endif
 
 build: 
 	npm run tauri build
+	npm run tauri android build
+	#adb install src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk
+
 
 info: ## Print out make variables
 	@echo "SERVICES: $(SERVICES)"
